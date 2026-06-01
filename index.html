@@ -42,8 +42,8 @@
             background-color: var(--bg-color); 
             margin: 0;
             padding: 0;
-            height: 100vh; /* Fallback */
-            height: 100dvh; /* Mobile browser fix */
+            height: 100vh;
+            height: 100dvh;
             display: flex;
             justify-content: center;
             transition: background-color 0.5s;
@@ -61,7 +61,6 @@
             transition: background-color 0.5s;
         }
 
-        /* Improved Header for Mobile */
         .chat-header {
             background: var(--header-bg);
             padding: 1rem 1rem 0.8rem 1rem;
@@ -145,6 +144,13 @@
             flex-direction: column;
         }
 
+        .msg-bubble img {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+
         .msg-bubble .sender-name {
             font-size: 0.75rem;
             position: absolute;
@@ -161,7 +167,7 @@
             font-weight: bold;
         }
 
-        .seen-tick { color: #93c5fd; } /* Light blue color for seen */
+        .seen-tick { color: #93c5fd; }
         .sent-tick { color: #e5e7eb; opacity: 0.7; }
 
         .msg-sent {
@@ -197,15 +203,40 @@
             100% { opacity: 0; transform: scale(1.5) translateY(-50px); filter: blur(10px); }
         }
 
+        /* Typing indicator styling */
+        .typing-indicator {
+            padding: 0 1rem;
+            font-size: 0.85rem;
+            color: #9ca3af;
+            font-style: italic;
+            height: 20px; /* Fixed height so it doesn't jump */
+            display: flex;
+            align-items: center;
+        }
+
         .chat-input-area {
-            padding: 1rem;
+            padding: 0.8rem 1rem;
             background-color: var(--container-bg);
             border-top: 1px solid #374151;
             display: flex;
             gap: 0.5rem;
             align-items: center;
-            padding-bottom: max(1rem, env(safe-area-inset-bottom)); /* Adjust for mobile notch */
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
         }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s;
+        }
+
+        .icon-btn:hover { color: var(--btn-color); }
 
         .chat-input {
             flex: 1;
@@ -217,6 +248,7 @@
             outline: none;
             font-size: 1.1rem;
             transition: border-color 0.3s;
+            width: 100%;
         }
 
         .chat-input:focus { border-color: var(--btn-color); }
@@ -248,7 +280,7 @@
 <body>
 
     <div class="chat-container" id="appContainer">
-        <!-- Improved Mobile Header -->
+        <!-- Header -->
         <div class="chat-header">
             <div class="header-top">
                 <h2 class="text-xl font-bold">Secret Room 🔒</h2>
@@ -270,9 +302,23 @@
         <!-- Chat Messages -->
         <div class="chat-box" id="chatBox"></div>
 
+        <!-- Typing Indicator -->
+        <div id="typingIndicator" class="typing-indicator"></div>
+
         <!-- Input Area -->
         <div class="chat-input-area">
-            <input type="text" id="messageInput" class="chat-input" placeholder="মেসেজ লিখুন..." onkeypress="handleKeyPress(event)">
+            <!-- Image Upload Button -->
+            <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+            <button class="icon-btn" onclick="document.getElementById('imageInput').click()" title="Send Image">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+            </button>
+
+            <input type="text" id="messageInput" class="chat-input" placeholder="মেসেজ লিখুন..." onkeypress="handleKeyPress(event)" oninput="handleTyping()">
+            
             <button class="send-btn" onclick="sendMessage()">
                 <svg class="send-icon" viewBox="0 0 24 24">
                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
@@ -284,9 +330,9 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, getDocs, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // তোমার দেওয়া আসল ফায়ারবেস কনফিগারেশন 
+        // ফায়ারবেস কনফিগারেশন 
         const firebaseConfig = {
             apiKey: "AIzaSyB3JW8tye9jzAhHV_Oe8aFs-YVwZczKzAk",
             authDomain: "secret-room-c6c93.firebaseapp.com",
@@ -299,8 +345,8 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const messagesRef = collection(db, "secret_messages");
+        const typingRef = collection(db, "typing_status");
 
-        // নতুন এবং মিষ্টি নোটিফিকেশন সাউন্ড
         const msgSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
         let isMuted = false;
 
@@ -309,7 +355,6 @@
             document.getElementById('muteBtn').innerText = isMuted ? '🔇' : '🔊';
         }
 
-        // থিম চেঞ্জ করার ফাংশন
         window.changeTheme = function() {
             const theme = document.getElementById('themeSelect').value;
             const container = document.getElementById('appContainer');
@@ -324,7 +369,6 @@
             changeTheme();
         }
 
-        // ইউজারের নাম সেট করা
         let myName = localStorage.getItem("chatName");
         if (!myName) {
             myName = prompt("আপনার নাম লিখুন:");
@@ -335,10 +379,43 @@
 
         const chatBox = document.getElementById('chatBox');
         const messageInput = document.getElementById('messageInput');
+        const typingIndicator = document.getElementById('typingIndicator');
         let initialLoad = true;
         let lastMessageCount = 0;
 
-        // লাইভ মেসেজ লিসেনার
+        // --- Typing Indicator Logic ---
+        let typingTimeout;
+        window.handleTyping = function() {
+            // ডাটাবেসে জানাচ্ছি যে আমি টাইপ করছি
+            setDoc(doc(db, "typing_status", myName), { isTyping: true, time: Date.now() });
+            
+            clearTimeout(typingTimeout);
+            // ২ সেকেন্ড টাইপিং থামিয়ে রাখলে status false হয়ে যাবে
+            typingTimeout = setTimeout(() => {
+                setDoc(doc(db, "typing_status", myName), { isTyping: false, time: Date.now() });
+            }, 2000);
+        }
+
+        // অন্যজনের টাইপিং শোনা
+        onSnapshot(typingRef, (snapshot) => {
+            let typers = [];
+            snapshot.forEach(d => {
+                let data = d.data();
+                // যদি অন্যজন টাইপ করে এবং তা গত ৫ সেকেন্ডের মধ্যে হয়
+                if (d.id !== myName && data.isTyping && (Date.now() - data.time < 5000)) {
+                    typers.push(d.id);
+                }
+            });
+
+            if (typers.length > 0) {
+                typingIndicator.innerText = `${typers.join(', ')} is typing...`;
+            } else {
+                typingIndicator.innerText = '';
+            }
+        });
+
+
+        // --- Live Messages Logic ---
         onSnapshot(messagesRef, (snapshot) => {
             let msgs = [];
             snapshot.forEach((document) => {
@@ -351,15 +428,13 @@
             msgs.forEach((data) => {
                 const isSentByMe = data.sender === myName;
                 
-                // শুধুমাত্র মেসেজ রিসিভকারী মেসেজটিকে "সিন (Seen)" করবে
                 if (!isSentByMe && data.status !== 'seen') {
                     updateDoc(doc(db, "secret_messages", data.id), { status: 'seen' }).catch(e => console.log(e));
                 }
 
-                displayMessage(data.text, isSentByMe, data.sender, data.status);
+                displayMessage(data.text, data.imageUrl, isSentByMe, data.sender, data.status);
             });
 
-            // শুধুমাত্র মেসেজ রিসিভ করলেই সাউন্ড প্লে হবে (নিজের মেসেজ পাঠালে হবে না)
             if (!initialLoad && msgs.length > lastMessageCount) {
                 const lastMsg = msgs[msgs.length - 1];
                 if (lastMsg.sender !== myName && !isMuted) {
@@ -374,7 +449,7 @@
             console.error("Error fetching messages: ", error);
         });
 
-        function displayMessage(text, isSentByMe, senderName, status) {
+        function displayMessage(text, imageUrl, isSentByMe, senderName, status) {
             const msgDiv = document.createElement('div');
             msgDiv.className = isSentByMe ? 'msg-bubble msg-sent' : 'msg-bubble msg-received';
             
@@ -383,11 +458,22 @@
             nameSpan.innerText = senderName;
             msgDiv.appendChild(nameSpan);
 
-            const textSpan = document.createElement('span');
-            textSpan.innerText = text;
-            msgDiv.appendChild(textSpan);
+            // যদি ইমেজ থাকে, তবে ইমেজ দেখাবে
+            if (imageUrl) {
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                // ছবিতে ক্লিক করলে বড় করে দেখার জন্য নতুন ট্যাবে খুলবে
+                img.onclick = () => window.open(imageUrl, '_blank'); 
+                msgDiv.appendChild(img);
+            }
 
-            // শুধু নিজের পাঠানো মেসেজের নিচে Seen/Sent টিক মার্ক দেখাবে
+            // যদি টেক্সট থাকে, তবে টেক্সট দেখাবে
+            if (text) {
+                const textSpan = document.createElement('span');
+                textSpan.innerText = text;
+                msgDiv.appendChild(textSpan);
+            }
+
             if (isSentByMe) {
                 const statusDiv = document.createElement('div');
                 statusDiv.className = 'msg-status';
@@ -402,25 +488,66 @@
             chatBox.appendChild(msgDiv);
         }
 
-        // মেসেজ পাঠানোর ফাংশন
-        window.sendMessage = async function() {
+        // --- Image Upload Logic ---
+        window.handleImageUpload = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // ছবি সিলেক্ট করার পর ইনপুট ক্লিয়ার করা
+            event.target.value = '';
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function(e) {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    // ছবি ছোট (compress) করা যাতে ডাটাবেসে জায়গা কম লাগে
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 600;
+                    let scaleSize = 1;
+                    
+                    if (img.width > MAX_WIDTH) {
+                        scaleSize = MAX_WIDTH / img.width;
+                    }
+                    
+                    canvas.width = img.width * scaleSize;
+                    canvas.height = img.height * scaleSize;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // Base64 format এ কনভার্ট
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); 
+                    
+                    // ফায়ারবেসে পাঠানো
+                    sendToFirestore("", compressedBase64);
+                }
+            }
+        }
+
+        window.sendMessage = function() {
             const text = messageInput.value.trim();
             if (text === "") return;
-            
             messageInput.value = ""; 
-
-            // মেসেজ পাঠানোর সময় কোনো সাউন্ড হবে না
             
+            // মেসেজ সেন্ড করার সময় টাইপিং বন্ধ দেখানো
+            setDoc(doc(db, "typing_status", myName), { isTyping: false, time: Date.now() });
+
+            sendToFirestore(text, null);
+        }
+
+        async function sendToFirestore(text, imageUrl) {
             try {
                 await addDoc(messagesRef, {
                     text: text,
+                    imageUrl: imageUrl, // ছবি থাকলে URL যাবে, না থাকলে null
                     sender: myName,
                     timestamp: Date.now(),
-                    status: 'sent' // ডিফল্ট স্ট্যাটাস Sent (✓)
+                    status: 'sent'
                 });
             } catch (e) {
                 console.error("Error adding document: ", e);
-                alert("মেসেজ পাঠাতে সমস্যা হচ্ছে। ইন্টারনেট চেক করুন।");
+                alert("মেসেজ পাঠাতে সমস্যা হচ্ছে।");
             }
         }
 
@@ -434,9 +561,8 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // সব মেসেজ ডিলিট (Vanish) করার ফাংশন
         window.vanishMessages = async function() {
-            const confirmVanish = confirm("সব মেসেজ দুই জনের ফোন থেকেই চিরতরে ডিলিট হয়ে যাবে! নিশ্চিত?");
+            const confirmVanish = confirm("সব মেসেজ এবং ছবি দুই জনের ফোন থেকেই চিরতরে ডিলিট হয়ে যাবে! নিশ্চিত?");
             if(!confirmVanish) return;
 
             const messages = document.querySelectorAll('.msg-bubble');
@@ -450,6 +576,13 @@
                 querySnapshot.forEach((docSnap) => {
                     deleteDoc(docSnap.ref);
                 });
+                
+                // টাইপিং স্ট্যাটাসও ক্লিয়ার করা
+                const typingSnapshot = await getDocs(typingRef);
+                typingSnapshot.forEach((docSnap) => {
+                    deleteDoc(docSnap.ref);
+                });
+
             } catch(e) {
                 console.error("Error deleting: ", e);
             }
