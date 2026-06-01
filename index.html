@@ -77,7 +77,13 @@
             gap: 4px;
         }
 
-        .theme-select {
+        .controls-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .theme-select, .mute-btn {
             background: rgba(0,0,0,0.3);
             color: #e5e7eb;
             border: 1px solid rgba(255,255,255,0.2);
@@ -86,6 +92,11 @@
             padding: 2px 5px;
             outline: none;
             cursor: pointer;
+        }
+
+        .mute-btn {
+            padding: 2px 8px;
+            font-size: 1rem;
         }
 
         .vanish-btn {
@@ -127,6 +138,8 @@
             word-wrap: break-word;
             position: relative;
             margin-top: 5px;
+            display: flex;
+            flex-direction: column;
         }
 
         .msg-bubble .sender-name {
@@ -137,6 +150,16 @@
             font-family: sans-serif;
             white-space: nowrap;
         }
+
+        .msg-status {
+            font-size: 0.7rem;
+            text-align: right;
+            margin-top: 2px;
+            font-weight: bold;
+        }
+
+        .seen-tick { color: #93c5fd; } /* Light blue color for seen */
+        .sent-tick { color: #e5e7eb; opacity: 0.7; }
 
         .msg-sent {
             align-self: flex-end;
@@ -224,13 +247,14 @@
         <div class="chat-header">
             <div class="header-left">
                 <h2 class="text-xl font-bold">Secret Room 🔒</h2>
-                <div style="display: flex; gap: 10px; align-items: center;">
+                <div class="controls-row">
                     <p class="text-xs text-gray-300" id="userNameDisplay">Connecting...</p>
                     <select id="themeSelect" onchange="changeTheme()" class="theme-select">
                         <option value="default">Red</option>
                         <option value="ocean">Blue</option>
                         <option value="forest">Green</option>
                     </select>
+                    <button id="muteBtn" class="mute-btn" onclick="toggleMute()" title="Toggle Sound">🔊</button>
                 </div>
             </div>
             <button class="vanish-btn" onclick="vanishMessages()">Vanish 💣</button>
@@ -250,10 +274,10 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs (GitHub Pages এ কাজ করার জন্য) -->
+    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         // তোমার দেওয়া আসল ফায়ারবেস কনফিগারেশন 
         const firebaseConfig = {
@@ -269,22 +293,24 @@
         const db = getFirestore(app);
         const messagesRef = collection(db, "secret_messages");
 
+        // সাউন্ড সেটআপ
+        const msgSound = new Audio('https://assets.mixkit.co/active_storage/sfx/236/236-preview.mp3');
+        let isMuted = false;
+
+        window.toggleMute = function() {
+            isMuted = !isMuted;
+            document.getElementById('muteBtn').innerText = isMuted ? '🔇' : '🔊';
+        }
+
         // থিম চেঞ্জ করার ফাংশন
         window.changeTheme = function() {
             const theme = document.getElementById('themeSelect').value;
             const container = document.getElementById('appContainer');
-            
-            // Remove existing theme classes
             container.className = 'chat-container'; 
-            
-            if (theme !== 'default') {
-                container.classList.add(`theme-${theme}`);
-            }
-            // Save theme preference
+            if (theme !== 'default') container.classList.add(`theme-${theme}`);
             localStorage.setItem("chatTheme", theme);
         }
 
-        // Load saved theme
         const savedTheme = localStorage.getItem("chatTheme");
         if (savedTheme) {
             document.getElementById('themeSelect').value = savedTheme;
@@ -302,36 +328,71 @@
 
         const chatBox = document.getElementById('chatBox');
         const messageInput = document.getElementById('messageInput');
+        let initialLoad = true;
+        let lastMessageCount = 0;
 
-        // লাইভ মেসেজ লিসেনার (রিয়েল-টাইম)
+        // লাইভ মেসেজ লিসেনার
         onSnapshot(messagesRef, (snapshot) => {
             let msgs = [];
-            snapshot.forEach((doc) => {
-                msgs.push({ id: doc.id, ...doc.data() });
+            snapshot.forEach((document) => {
+                msgs.push({ id: document.id, ...document.data() });
             });
             
-            // মেসেজগুলো সময়ের ক্রমানুসারে সাজানো
             msgs.sort((a, b) => a.timestamp - b.timestamp);
-
             chatBox.innerHTML = ''; 
+
+            let hasNewIncomingMsg = false;
+
             msgs.forEach((data) => {
-                displayMessage(data.text, data.sender === myName, data.sender);
+                const isSentByMe = data.sender === myName;
+                
+                // যদি মেসেজ অন্য কারো হয় এবং 'seen' না হয়ে থাকে, তাহলে seen আপডেট করা
+                if (!isSentByMe && data.status !== 'seen') {
+                    updateDoc(doc(db, "secret_messages", data.id), { status: 'seen' }).catch(e => console.log(e));
+                }
+
+                displayMessage(data.text, isSentByMe, data.sender, data.status);
             });
+
+            // সাউন্ড প্লে করা (নতুন মেসেজ আসলে)
+            if (!initialLoad && msgs.length > lastMessageCount) {
+                const lastMsg = msgs[msgs.length - 1];
+                if (lastMsg.sender !== myName && !isMuted) {
+                    msgSound.play().catch(e => console.log("Audio play blocked by browser"));
+                }
+            }
+
+            lastMessageCount = msgs.length;
+            initialLoad = false;
             scrollToBottom();
         }, (error) => {
             console.error("Error fetching messages: ", error);
         });
 
-        function displayMessage(text, isSentByMe, senderName) {
+        function displayMessage(text, isSentByMe, senderName, status) {
             const msgDiv = document.createElement('div');
             msgDiv.className = isSentByMe ? 'msg-bubble msg-sent' : 'msg-bubble msg-received';
             
             const nameSpan = document.createElement('span');
             nameSpan.className = 'sender-name';
             nameSpan.innerText = senderName;
-            
-            msgDiv.innerText = text;
             msgDiv.appendChild(nameSpan);
+
+            const textSpan = document.createElement('span');
+            textSpan.innerText = text;
+            msgDiv.appendChild(textSpan);
+
+            // শুধু নিজের মেসেজের নিচে Seen/Sent টিক মার্ক দেখাবে
+            if (isSentByMe) {
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'msg-status';
+                if (status === 'seen') {
+                    statusDiv.innerHTML = '<span class="seen-tick">✓✓</span>';
+                } else {
+                    statusDiv.innerHTML = '<span class="sent-tick">✓</span>';
+                }
+                msgDiv.appendChild(statusDiv);
+            }
             
             chatBox.appendChild(msgDiv);
         }
@@ -343,11 +404,17 @@
             
             messageInput.value = ""; 
 
+            // নিজের মেসেজ পাঠানোর সাউন্ড
+            if (!isMuted) {
+                msgSound.play().catch(e => console.log(e));
+            }
+
             try {
                 await addDoc(messagesRef, {
                     text: text,
                     sender: myName,
-                    timestamp: Date.now() // বর্তমান সময়
+                    timestamp: Date.now(),
+                    status: 'sent' // ডিফল্ট স্ট্যাটাস Sent
                 });
             } catch (e) {
                 console.error("Error adding document: ", e);
@@ -370,14 +437,12 @@
             const confirmVanish = confirm("সব মেসেজ দুই জনের ফোন থেকেই চিরতরে ডিলিট হয়ে যাবে! নিশ্চিত?");
             if(!confirmVanish) return;
 
-            // ভ্যানিশ অ্যানিমেশন
             const messages = document.querySelectorAll('.msg-bubble');
             messages.forEach((msg, index) => {
                 msg.style.animationDelay = `${index * 0.05}s`;
                 msg.classList.add('vanish-effect');
             });
 
-            // ডাটাবেস থেকে ডিলিট করা
             try {
                 const querySnapshot = await getDocs(messagesRef);
                 querySnapshot.forEach((docSnap) => {
@@ -387,15 +452,9 @@
                 console.error("Error deleting: ", e);
             }
 
-            // ১ সেকেন্ড পর ব্রাউজার ট্যাব ক্লোজ অথবা রিডাইরেক্ট করার চেষ্টা
             setTimeout(() => {
-                // ব্রাউজারের হিস্ট্রি পরিবর্তন করা (যাতে Back বাটনে চাপলে আবার চ্যাটে না আসে)
                 window.history.replaceState(null, '', 'https://www.google.com');
-                
-                // উইন্ডো ক্লোজ করার চেষ্টা (সব ব্রাউজারে কাজ নাও করতে পারে)
                 window.close();
-                
-                // যদি উইন্ডো ক্লোজ না হয়, তাহলে গুগল-এ রিডাইরেক্ট করে দেবে
                 window.location.replace('https://www.google.com');
             }, 1000);
         }
