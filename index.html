@@ -42,7 +42,8 @@
             background-color: var(--bg-color); 
             margin: 0;
             padding: 0;
-            height: 100vh;
+            height: 100vh; /* Fallback */
+            height: 100dvh; /* Mobile browser fix */
             display: flex;
             justify-content: center;
             transition: background-color 0.5s;
@@ -60,26 +61,28 @@
             transition: background-color 0.5s;
         }
 
+        /* Improved Header for Mobile */
         .chat-header {
             background: var(--header-bg);
-            padding: 1rem;
+            padding: 1rem 1rem 0.8rem 1rem;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            gap: 12px;
             color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             z-index: 10;
         }
 
-        .header-left {
+        .header-top, .header-bottom {
             display: flex;
-            flex-direction: column;
-            gap: 4px;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
         }
 
         .controls-row {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             align-items: center;
         }
 
@@ -89,14 +92,14 @@
             border: 1px solid rgba(255,255,255,0.2);
             border-radius: 4px;
             font-size: 0.8rem;
-            padding: 2px 5px;
+            padding: 4px 8px;
             outline: none;
             cursor: pointer;
         }
 
         .mute-btn {
-            padding: 2px 8px;
             font-size: 1rem;
+            padding: 2px 8px;
         }
 
         .vanish-btn {
@@ -129,7 +132,7 @@
         .chat-box::-webkit-scrollbar { display: none; }
 
         .msg-bubble {
-            max-width: 75%;
+            max-width: 80%;
             padding: 0.8rem 1rem;
             border-radius: 20px;
             font-size: 1.1rem;
@@ -152,9 +155,9 @@
         }
 
         .msg-status {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             text-align: right;
-            margin-top: 2px;
+            margin-top: 4px;
             font-weight: bold;
         }
 
@@ -201,6 +204,7 @@
             display: flex;
             gap: 0.5rem;
             align-items: center;
+            padding-bottom: max(1rem, env(safe-area-inset-bottom)); /* Adjust for mobile notch */
         }
 
         .chat-input {
@@ -230,6 +234,7 @@
             cursor: pointer;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             transition: all 0.2s;
+            flex-shrink: 0;
         }
 
         .send-btn:hover, .send-btn:active {
@@ -243,12 +248,15 @@
 <body>
 
     <div class="chat-container" id="appContainer">
-        <!-- Header -->
+        <!-- Improved Mobile Header -->
         <div class="chat-header">
-            <div class="header-left">
+            <div class="header-top">
                 <h2 class="text-xl font-bold">Secret Room 🔒</h2>
+                <button class="vanish-btn" onclick="vanishMessages()">Vanish 💣</button>
+            </div>
+            <div class="header-bottom">
+                <p class="text-xs text-gray-300" id="userNameDisplay">Connecting...</p>
                 <div class="controls-row">
-                    <p class="text-xs text-gray-300" id="userNameDisplay">Connecting...</p>
                     <select id="themeSelect" onchange="changeTheme()" class="theme-select">
                         <option value="default">Red</option>
                         <option value="ocean">Blue</option>
@@ -257,7 +265,6 @@
                     <button id="muteBtn" class="mute-btn" onclick="toggleMute()" title="Toggle Sound">🔊</button>
                 </div>
             </div>
-            <button class="vanish-btn" onclick="vanishMessages()">Vanish 💣</button>
         </div>
 
         <!-- Chat Messages -->
@@ -293,8 +300,8 @@
         const db = getFirestore(app);
         const messagesRef = collection(db, "secret_messages");
 
-        // সাউন্ড সেটআপ
-        const msgSound = new Audio('https://assets.mixkit.co/active_storage/sfx/236/236-preview.mp3');
+        // নতুন এবং মিষ্টি নোটিফিকেশন সাউন্ড
+        const msgSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
         let isMuted = false;
 
         window.toggleMute = function() {
@@ -341,12 +348,10 @@
             msgs.sort((a, b) => a.timestamp - b.timestamp);
             chatBox.innerHTML = ''; 
 
-            let hasNewIncomingMsg = false;
-
             msgs.forEach((data) => {
                 const isSentByMe = data.sender === myName;
                 
-                // যদি মেসেজ অন্য কারো হয় এবং 'seen' না হয়ে থাকে, তাহলে seen আপডেট করা
+                // শুধুমাত্র মেসেজ রিসিভকারী মেসেজটিকে "সিন (Seen)" করবে
                 if (!isSentByMe && data.status !== 'seen') {
                     updateDoc(doc(db, "secret_messages", data.id), { status: 'seen' }).catch(e => console.log(e));
                 }
@@ -354,11 +359,11 @@
                 displayMessage(data.text, isSentByMe, data.sender, data.status);
             });
 
-            // সাউন্ড প্লে করা (নতুন মেসেজ আসলে)
+            // শুধুমাত্র মেসেজ রিসিভ করলেই সাউন্ড প্লে হবে (নিজের মেসেজ পাঠালে হবে না)
             if (!initialLoad && msgs.length > lastMessageCount) {
                 const lastMsg = msgs[msgs.length - 1];
                 if (lastMsg.sender !== myName && !isMuted) {
-                    msgSound.play().catch(e => console.log("Audio play blocked by browser"));
+                    msgSound.play().catch(e => console.log("Audio play blocked"));
                 }
             }
 
@@ -382,7 +387,7 @@
             textSpan.innerText = text;
             msgDiv.appendChild(textSpan);
 
-            // শুধু নিজের মেসেজের নিচে Seen/Sent টিক মার্ক দেখাবে
+            // শুধু নিজের পাঠানো মেসেজের নিচে Seen/Sent টিক মার্ক দেখাবে
             if (isSentByMe) {
                 const statusDiv = document.createElement('div');
                 statusDiv.className = 'msg-status';
@@ -404,17 +409,14 @@
             
             messageInput.value = ""; 
 
-            // নিজের মেসেজ পাঠানোর সাউন্ড
-            if (!isMuted) {
-                msgSound.play().catch(e => console.log(e));
-            }
-
+            // মেসেজ পাঠানোর সময় কোনো সাউন্ড হবে না
+            
             try {
                 await addDoc(messagesRef, {
                     text: text,
                     sender: myName,
                     timestamp: Date.now(),
-                    status: 'sent' // ডিফল্ট স্ট্যাটাস Sent
+                    status: 'sent' // ডিফল্ট স্ট্যাটাস Sent (✓)
                 });
             } catch (e) {
                 console.error("Error adding document: ", e);
