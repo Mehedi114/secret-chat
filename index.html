@@ -7,14 +7,45 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla:ital@0;1&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-color: #111827;
+            --container-bg: #1f2937;
+            --header-bg: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%);
+            --chat-bg: radial-gradient(circle at center, #1f2937 0%, #111827 100%);
+            --sent-bg: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            --btn-color: #ef4444;
+            --btn-hover: #dc2626;
+        }
+
+        .theme-ocean {
+            --bg-color: #0f172a;
+            --container-bg: #1e293b;
+            --header-bg: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+            --chat-bg: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            --sent-bg: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            --btn-color: #3b82f6;
+            --btn-hover: #2563eb;
+        }
+
+        .theme-forest {
+            --bg-color: #064e3b;
+            --container-bg: #065f46;
+            --header-bg: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
+            --chat-bg: radial-gradient(circle at center, #065f46 0%, #022c22 100%);
+            --sent-bg: linear-gradient(135deg, #10b981 0%, #047857 100%);
+            --btn-color: #10b981;
+            --btn-hover: #059669;
+        }
+
         body {
             font-family: 'Tiro Bangla', serif;
-            background-color: #111827; 
+            background-color: var(--bg-color); 
             margin: 0;
             padding: 0;
             height: 100vh;
             display: flex;
             justify-content: center;
+            transition: background-color 0.5s;
         }
 
         .chat-container {
@@ -23,13 +54,14 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            background-color: #1f2937;
+            background-color: var(--container-bg);
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             position: relative;
+            transition: background-color 0.5s;
         }
 
         .chat-header {
-            background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%);
+            background: var(--header-bg);
             padding: 1rem;
             display: flex;
             justify-content: space-between;
@@ -39,10 +71,27 @@
             z-index: 10;
         }
 
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .theme-select {
+            background: rgba(0,0,0,0.3);
+            color: #e5e7eb;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            padding: 2px 5px;
+            outline: none;
+            cursor: pointer;
+        }
+
         .vanish-btn {
-            background: rgba(255, 0, 0, 0.2);
-            border: 1px solid #ef4444;
-            color: #fca5a5;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--btn-color);
+            color: white;
             padding: 0.4rem 0.8rem;
             border-radius: 9999px;
             font-size: 0.9rem;
@@ -51,9 +100,9 @@
         }
 
         .vanish-btn:hover, .vanish-btn:active {
-            background: #ef4444;
+            background: var(--btn-color);
             color: white;
-            box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+            box-shadow: 0 0 15px var(--btn-color);
         }
 
         .chat-box {
@@ -63,7 +112,7 @@
             display: flex;
             flex-direction: column;
             gap: 1.2rem;
-            background-image: radial-gradient(circle at center, #1f2937 0%, #111827 100%);
+            background-image: var(--chat-bg);
         }
 
         .chat-box::-webkit-scrollbar { display: none; }
@@ -91,10 +140,10 @@
 
         .msg-sent {
             align-self: flex-end;
-            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            background: var(--sent-bg);
             color: white;
             border-bottom-right-radius: 5px;
-            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
         .msg-sent .sender-name { right: 5px; color: #fca5a5; }
 
@@ -124,7 +173,7 @@
 
         .chat-input-area {
             padding: 1rem;
-            background-color: #1f2937;
+            background-color: var(--container-bg);
             border-top: 1px solid #374151;
             display: flex;
             gap: 0.5rem;
@@ -143,10 +192,10 @@
             transition: border-color 0.3s;
         }
 
-        .chat-input:focus { border-color: #ef4444; }
+        .chat-input:focus { border-color: var(--btn-color); }
 
         .send-btn {
-            background-color: #ef4444;
+            background-color: var(--btn-color);
             color: white;
             border: none;
             width: 45px;
@@ -156,13 +205,13 @@
             justify-content: center;
             align-items: center;
             cursor: pointer;
-            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             transition: all 0.2s;
         }
 
         .send-btn:hover, .send-btn:active {
             transform: scale(1.1);
-            background-color: #dc2626;
+            background-color: var(--btn-hover);
         }
 
         .send-icon { width: 20px; height: 20px; fill: currentColor; margin-left: 3px; }
@@ -170,12 +219,19 @@
 </head>
 <body>
 
-    <div class="chat-container">
+    <div class="chat-container" id="appContainer">
         <!-- Header -->
         <div class="chat-header">
-            <div>
+            <div class="header-left">
                 <h2 class="text-xl font-bold">Secret Room 🔒</h2>
-                <p class="text-xs text-red-200" id="userNameDisplay">Connecting...</p>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <p class="text-xs text-gray-300" id="userNameDisplay">Connecting...</p>
+                    <select id="themeSelect" onchange="changeTheme()" class="theme-select">
+                        <option value="default">Red</option>
+                        <option value="ocean">Blue</option>
+                        <option value="forest">Green</option>
+                    </select>
+                </div>
             </div>
             <button class="vanish-btn" onclick="vanishMessages()">Vanish 💣</button>
         </div>
@@ -213,10 +269,32 @@
         const db = getFirestore(app);
         const messagesRef = collection(db, "secret_messages");
 
+        // থিম চেঞ্জ করার ফাংশন
+        window.changeTheme = function() {
+            const theme = document.getElementById('themeSelect').value;
+            const container = document.getElementById('appContainer');
+            
+            // Remove existing theme classes
+            container.className = 'chat-container'; 
+            
+            if (theme !== 'default') {
+                container.classList.add(`theme-${theme}`);
+            }
+            // Save theme preference
+            localStorage.setItem("chatTheme", theme);
+        }
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem("chatTheme");
+        if (savedTheme) {
+            document.getElementById('themeSelect').value = savedTheme;
+            changeTheme();
+        }
+
         // ইউজারের নাম সেট করা
         let myName = localStorage.getItem("chatName");
         if (!myName) {
-            myName = prompt("আপনার নাম লিখুন (যেমন: Mehedi / Tisha):");
+            myName = prompt("আপনার নাম লিখুন:");
             if(myName) localStorage.setItem("chatName", myName);
             else myName = "Anonymous";
         }
@@ -308,6 +386,18 @@
             } catch(e) {
                 console.error("Error deleting: ", e);
             }
+
+            // ১ সেকেন্ড পর ব্রাউজার ট্যাব ক্লোজ অথবা রিডাইরেক্ট করার চেষ্টা
+            setTimeout(() => {
+                // ব্রাউজারের হিস্ট্রি পরিবর্তন করা (যাতে Back বাটনে চাপলে আবার চ্যাটে না আসে)
+                window.history.replaceState(null, '', 'https://www.google.com');
+                
+                // উইন্ডো ক্লোজ করার চেষ্টা (সব ব্রাউজারে কাজ নাও করতে পারে)
+                window.close();
+                
+                // যদি উইন্ডো ক্লোজ না হয়, তাহলে গুগল-এ রিডাইরেক্ট করে দেবে
+                window.location.replace('https://www.google.com');
+            }, 1000);
         }
     </script>
 </body>
